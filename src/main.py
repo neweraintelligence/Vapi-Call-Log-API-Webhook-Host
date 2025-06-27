@@ -66,11 +66,33 @@ def handle_vapi_webhook():
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
-    return jsonify({
+    # Basic app health
+    health_status = {
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
         "service": "vapi-call-log"
-    }), 200
+    }
+    
+    # Check Google Sheets connectivity
+    try:
+        sheets_health = sheet_writer.health_check()
+        health_status["google_sheets"] = sheets_health
+        
+        # Overall status depends on all components
+        if sheets_health.get("status") == "error":
+            health_status["status"] = "degraded"
+            
+    except Exception as e:
+        health_status["google_sheets"] = {
+            "status": "error",
+            "message": f"Health check failed: {str(e)}"
+        }
+        health_status["status"] = "degraded"
+    
+    # Return appropriate HTTP status code
+    status_code = 200 if health_status["status"] in ["healthy", "degraded"] else 503
+    
+    return jsonify(health_status), status_code
 
 @app.route('/test', methods=['POST'])
 def test_endpoint():

@@ -2,7 +2,7 @@ import os
 import json
 import time
 import logging
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 from googleapiclient.errors import HttpError
@@ -26,11 +26,14 @@ class SheetWriter:
             'follow_up_due', 'call_duration', 'call_status', 'raw_payload'
         ]
         
-        self.service = None
-        self._initialize_service()
+        self.service: Optional[Any] = None
+        self._initialized = False
     
     def _initialize_service(self):
-        """Initialize Google Sheets API service"""
+        """Initialize Google Sheets API service (lazy initialization)"""
+        if self._initialized:
+            return
+            
         try:
             if os.path.exists(self.credentials_path):
                 # Use service account credentials file
@@ -51,6 +54,7 @@ class SheetWriter:
                     raise ValueError("No Google credentials found. Set GOOGLE_CREDENTIALS_PATH or GOOGLE_CREDENTIALS_JSON")
             
             self.service = build('sheets', 'v4', credentials=credentials)
+            self._initialized = True
             logger.info("Google Sheets API service initialized successfully")
             
         except Exception as e:
@@ -67,6 +71,9 @@ class SheetWriter:
         Returns:
             bool: Success status
         """
+        # Initialize service if not already done
+        self._initialize_service()
+        
         if not self.service:
             raise RuntimeError("Google Sheets service not initialized")
         
@@ -152,6 +159,9 @@ class SheetWriter:
             bool: Success status
         """
         try:
+            # Initialize service if not already done
+            self._initialize_service()
+            
             # Check if headers exist
             range_name = f"{self.sheet_name}!1:1"
             result = self.service.spreadsheets().values().get(
@@ -198,7 +208,10 @@ class SheetWriter:
             bool: True if duplicate exists
         """
         try:
-            # Get all call IDs (column B)
+            # Initialize service if not already done
+            self._initialize_service()
+            
+            # Search for the call ID in column B (vapi_call_id)
             range_name = f"{self.sheet_name}!B:B"
             result = self.service.spreadsheets().values().get(
                 spreadsheetId=self.spreadsheet_id,
@@ -206,59 +219,86 @@ class SheetWriter:
             ).execute()
             
             values = result.get('values', [])
-            existing_ids = [row[0] for row in values if row]
             
-            return vapi_call_id in existing_ids
+            # Check if call ID exists in any row
+            for row in values:
+                if row and row[0] == vapi_call_id:
+                    return True
+            
+            return False
             
         except Exception as e:
             logger.error(f"Error checking for duplicates: {str(e)}")
-            return False  # Assume no duplicate if check fails
+            return False
     
     def get_sheet_stats(self) -> Dict[str, Any]:
         """
         Get basic statistics about the sheet
         
         Returns:
-            Dictionary with sheet stats
+            Dict with row count and other stats
         """
         try:
-            # Get sheet metadata
-            sheet_metadata = self.service.spreadsheets().get(
-                spreadsheetId=self.spreadsheet_id
-            ).execute()
+            # Initialize service if not already done
+            self._initialize_service()
             
-            # Find our specific sheet
-            target_sheet = None
-            for sheet in sheet_metadata['sheets']:
-                if sheet['properties']['title'] == self.sheet_name:
-                    target_sheet = sheet
-                    break
-            
-            if not target_sheet:
-                return {"error": f"Sheet '{self.sheet_name}' not found"}
-            
-            row_count = target_sheet['properties']['gridProperties'].get('rowCount', 0)
-            
-            # Get actual data to count non-empty rows
+            # Get all data to count rows
+            range_name = f"{self.sheet_name}!A:A"
             result = self.service.spreadsheets().values().get(
                 spreadsheetId=self.spreadsheet_id,
-                range=f"{self.sheet_name}!A:A"
+                range=range_name
             ).execute()
             
-            data_rows = len(result.get('values', [])) - 1  # Subtract header row
+            values = result.get('values', [])
+            row_count = len(values)
             
             return {
-                "sheet_name": self.sheet_name,
                 "total_rows": row_count,
-                "data_rows": max(0, data_rows),
-                "last_updated": time.strftime('%Y-%m-%d %H:%M:%S')
+                "data_rows": max(0, row_count - 1),  # Excluding header
+                "sheet_name": self.sheet_name,
+                "spreadsheet_id": self.spreadsheet_id
             }
             
         except Exception as e:
             logger.error(f"Error getting sheet stats: {str(e)}")
             return {"error": str(e)}
+    
+    def health_check(self) -> Dict[str, Any]:
+        """
+        Check if Google Sheets connection is working
+        
+        Returns:
+            Dict with health status
+        """
+        try:
+            # Check if required environment variables are set
+            if not self.spreadsheet_id:
+                return {
+                    "status": "error",
+                    "message": "GOOGLE_SHEET_ID environment variable not set"
+                }
+            
+            # Try to initialize service
+            self._initialize_service()
+            
+            # Test basic connectivity by getting sheet metadata
+            result = self.service.spreadsheets().get(
+                spreadsheetId=self.spreadsheet_id
+            ).execute()
+            
+            return {
+                "status": "healthy",
+                "message": "Google Sheets connection successful",
+                "sheet_title": result.get('properties', {}).get('title', 'Unknown'),
+                "sheet_id": self.spreadsheet_id
+            }
+            
+        except Exception as e:
+            return {
+                "status": "error", 
+                "message": f"Google Sheets connection failed: {str(e)}"
+            }
 
-# Utility function for external use
 def create_sheet_writer() -> SheetWriter:
-    """Factory function to create configured SheetWriter instance"""
+    """Factory function to create SheetWriter instance"""
     return SheetWriter() 
