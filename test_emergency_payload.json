@@ -1,0 +1,31 @@
+{
+  "call": {
+    "id": "call_emergency_001",
+    "created_at": "2024-01-15T08:15:00Z",
+    "duration": 95,
+    "status": "completed",
+    "type": "inbound"
+  },
+  "summary": {
+    "text": "URGENT: Customer Mike Thompson called from Highway 401 near Mississauga. His 2018 Ford F-150 has a flat tire and he's stranded on the shoulder. Customer sounds stressed but is in a safe location behind the guardrail. He needs immediate roadside assistance or emergency tire service. Vehicle is a work truck and he has important deliveries scheduled. Customer mentioned he doesn't have a spare tire that's road-worthy."
+  },
+  "structured": {
+    "Name": "Mike Thompson",
+    "Email": "",
+    "PhoneNumber": "647-555-9999",
+    "CallerIntent": "Emergency",
+    "VehicleMake": "Ford",
+    "VehicleModel": "F-150",
+    "VehicleKM": "",
+    "Location": "Highway 401 near Mississauga",
+    "EmergencyType": "Flat Tire - Roadside Assistance",
+    "CustomerStatus": "Stranded but safe",
+    "UrgencyLevel": "Immediate"
+  },
+  "metadata": {
+    "webhook_version": "1.0",
+    "timestamp": "2024-01-15T08:15:30Z",
+    "source": "vapi",
+    "priority": "emergency"
+  }
+} 
