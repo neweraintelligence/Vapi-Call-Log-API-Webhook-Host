@@ -36,14 +36,6 @@ def handle_vapi_webhook():
         
         payload = request.get_json()
         
-        # Validate webhook secret (if configured)
-        webhook_secret = os.getenv('VAPI_WEBHOOK_SECRET')
-        if webhook_secret:
-            provided_secret = request.headers.get('X-Vapi-Secret')
-            if provided_secret != webhook_secret:
-                logger.error("Invalid webhook secret")
-                return jsonify({"error": "Unauthorized"}), 401
-        
         logger.info(f"Received webhook payload for call: {payload.get('call', {}).get('id', 'unknown')}")
         
         # Parse the payload into flat dict
