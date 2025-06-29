@@ -36,7 +36,23 @@ def handle_vapi_webhook():
         
         payload = request.get_json()
         
-        logger.info(f"Received webhook payload for call: {payload.get('call', {}).get('id', 'unknown')}")
+        # Log the raw payload for debugging
+        logger.info(f"Received webhook payload: {json.dumps(payload, indent=2)}")
+        
+        # Check if this is an end-of-call-report message
+        message_type = payload.get('type', payload.get('message', {}).get('type', ''))
+        
+        if message_type != 'end-of-call-report':
+            logger.info(f"Ignoring non-end-of-call-report message: {message_type}")
+            return jsonify({
+                "status": "ignored",
+                "message_type": message_type,
+                "info": "Only processing end-of-call-report messages"
+            }), 200
+        
+        # Extract call ID for logging
+        call_id = payload.get('call', {}).get('id') or payload.get('message', {}).get('call', {}).get('id', 'unknown')
+        logger.info(f"Processing end-of-call-report for call: {call_id}")
         
         # Parse the payload into flat dict
         parsed_data = parser.parse_call_data(payload)
@@ -49,11 +65,13 @@ def handle_vapi_webhook():
         return jsonify({
             "status": "success",
             "call_id": parsed_data.get('vapi_call_id'),
-            "timestamp": parsed_data.get('timestamp')
+            "timestamp": parsed_data.get('timestamp'),
+            "message_type": message_type
         }), 200
         
     except Exception as e:
         logger.error(f"Error processing webhook: {str(e)}")
+        logger.error(f"Payload causing error: {json.dumps(payload, indent=2) if 'payload' in locals() else 'N/A'}")
         
         # Send alert for critical failures
         # TODO: Implement Slack/email alerting

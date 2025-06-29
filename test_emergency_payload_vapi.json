@@ -1,0 +1,30 @@
+{
+  "type": "end-of-call-report",
+  "call": {
+    "id": "call_emergency_xyz789",
+    "created_at": "2024-01-15T16:45:00Z",
+    "duration": 95,
+    "status": "completed",
+    "type": "inbound",
+    "from": "+14169876543",
+    "to": "+18885551234"
+  },
+  "analysis": {
+    "summary": "URGENT: Customer John Martinez called about his vehicle that broke down on Highway 401. He's stranded with his family and needs immediate roadside assistance. The engine is overheating and making loud noises. He sounds frustrated and stressed about the situation. Requested emergency towing service to the nearest OK Tire location. Customer emphasized this is an emergency situation.",
+    "structuredData": {
+      "customer_name": "John Martinez",
+      "customer_email": "j.martinez@email.com",
+      "customer_phone": "416-987-6543",
+      "caller_intent": "Emergency",
+      "vehicle_make": "Honda",
+      "vehicle_model": "Civic",
+      "vehicle_km": "78000",
+      "service_requested": "Emergency Towing + Engine Diagnosis",
+      "location": "Highway 401 eastbound near Exit 394",
+      "customer_notes": "Stranded with family, engine overheating and making loud noises",
+      "urgency_level": "Critical"
+    },
+    "successEvaluation": "false"
+  },
+  "timestamp": "2024-01-15T16:45:30Z"
+} 

@@ -22,15 +22,34 @@ class VapiCallParser:
         Parse Vapi webhook payload into flat dictionary
         
         Args:
-            payload: Raw Vapi webhook JSON payload
+            payload: Raw Vapi webhook JSON payload (end-of-call-report format)
             
         Returns:
             Flat dictionary with standardized column names
         """
         try:
-            call_data = payload.get('call', {})
-            summary_data = payload.get('summary', {})
-            structured_data = payload.get('structured', {})
+            # Handle both direct payload and nested message formats
+            if payload.get('type') == 'end-of-call-report':
+                # Direct format
+                call_data = payload.get('call', {})
+                analysis_data = payload.get('analysis', {})
+            elif payload.get('message', {}).get('type') == 'end-of-call-report':
+                # Nested message format
+                message = payload.get('message', {})
+                call_data = message.get('call', {})
+                analysis_data = message.get('analysis', {})
+            else:
+                # Legacy format (fallback)
+                call_data = payload.get('call', {})
+                analysis_data = {
+                    'summary': payload.get('summary', {}).get('text', ''),
+                    'structuredData': payload.get('structured', {})
+                }
+            
+            # Extract structured data from analysis
+            summary_text = analysis_data.get('summary', '')
+            structured_data = analysis_data.get('structuredData', {})
+            success_evaluation = analysis_data.get('successEvaluation', '')
             
             # Extract and validate core fields
             parsed = {
@@ -38,27 +57,28 @@ class VapiCallParser:
                 'vapi_call_id': self._safe_get(call_data, 'id', ''),
                 'timestamp': self._parse_timestamp(call_data.get('created_at')),
                 
-                # Call summary
-                'CallSummary': self._clean_text(summary_data.get('text', '')),
+                # Call summary from analysis
+                'CallSummary': self._clean_text(summary_text),
                 
-                # Structured customer data
-                'Name': self._format_name(structured_data.get('Name', '')),
-                'Email': self._validate_email(structured_data.get('Email', '')),
-                'PhoneNumber': self._validate_phone(structured_data.get('PhoneNumber', '')),
+                # Structured customer data from analysis
+                'Name': self._format_name(structured_data.get('customer_name', structured_data.get('Name', ''))),
+                'Email': self._validate_email(structured_data.get('customer_email', structured_data.get('Email', ''))),
+                'PhoneNumber': self._validate_phone(structured_data.get('customer_phone', structured_data.get('PhoneNumber', ''))),
                 
                 # Call intent and vehicle info
-                'CallerIntent': self._validate_intent(structured_data.get('CallerIntent', '')),
-                'VehicleMake': self._clean_text(structured_data.get('VehicleMake', '')),
-                'VehicleModel': self._clean_text(structured_data.get('VehicleModel', '')),
-                'VehicleKM': self._parse_numeric(structured_data.get('VehicleKM')),
+                'CallerIntent': self._validate_intent(structured_data.get('caller_intent', structured_data.get('CallerIntent', ''))),
+                'VehicleMake': self._clean_text(structured_data.get('vehicle_make', structured_data.get('VehicleMake', ''))),
+                'VehicleModel': self._clean_text(structured_data.get('vehicle_model', structured_data.get('VehicleModel', ''))),
+                'VehicleKM': self._parse_numeric(structured_data.get('vehicle_km', structured_data.get('VehicleKM'))),
                 
                 # Operational fields
-                'escalation_status': self._determine_escalation_status(payload),
-                'follow_up_due': self._calculate_follow_up_date(structured_data.get('CallerIntent', '')),
+                'escalation_status': self._determine_escalation_status(summary_text, structured_data),
+                'follow_up_due': self._calculate_follow_up_date(structured_data.get('caller_intent', structured_data.get('CallerIntent', ''))),
                 
                 # Additional metadata
                 'call_duration': call_data.get('duration', 0),
                 'call_status': call_data.get('status', 'unknown'),
+                'success_evaluation': str(success_evaluation),
                 'raw_payload': str(payload)[:500]  # Truncated raw data for debugging
             }
             
@@ -183,11 +203,8 @@ class VapiCallParser:
             logger.warning(f"Invalid numeric value: {value}")
             return f"INVALID: {str(value)[:20]}"
     
-    def _determine_escalation_status(self, payload: Dict[str, Any]) -> str:
+    def _determine_escalation_status(self, summary: str, structured: Dict[str, Any]) -> str:
         """Determine if call needs escalation based on content"""
-        summary = payload.get('summary', {}).get('text', '').lower()
-        structured = payload.get('structured', {})
-        
         # Keywords that suggest escalation needed
         escalation_keywords = [
             'angry', 'frustrated', 'complaint', 'manager', 'supervisor',
@@ -195,11 +212,12 @@ class VapiCallParser:
         ]
         
         # Check summary for escalation keywords
-        if any(keyword in summary for keyword in escalation_keywords):
+        summary_lower = str(summary).lower()
+        if any(keyword in summary_lower for keyword in escalation_keywords):
             return 'High Priority'
         
-        # Check intent for emergency services
-        intent = structured.get('CallerIntent', '').lower()
+        # Check intent for emergency services (try both possible field names)
+        intent = structured.get('caller_intent', structured.get('CallerIntent', '')).lower()
         if 'emergency' in intent:
             return 'Emergency'
         

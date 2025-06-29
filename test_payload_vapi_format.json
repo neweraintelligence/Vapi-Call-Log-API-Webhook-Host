@@ -1,0 +1,30 @@
+{
+  "type": "end-of-call-report",
+  "call": {
+    "id": "call_vapi_abc123456",
+    "created_at": "2024-01-15T14:30:00Z",
+    "duration": 185,
+    "status": "completed",
+    "type": "inbound",
+    "from": "+14165550123",
+    "to": "+18885551234"
+  },
+  "analysis": {
+    "summary": "Customer Sarah Wilson called to schedule an oil change for her 2020 Toyota Camry with 45,000 kilometers. She mentioned the car has been making a slight squeaking noise during braking and asked if we could check the brake pads while the vehicle is in for service. Customer is available Tuesday or Wednesday morning and prefers full synthetic oil. She also requested a quote for tire rotation service. Very polite and organized customer - mentioned she keeps detailed maintenance records.",
+    "structuredData": {
+      "customer_name": "Sarah Wilson",
+      "customer_email": "sarah.wilson@email.com",
+      "customer_phone": "416-555-0123",
+      "caller_intent": "Oil Change",
+      "vehicle_make": "Toyota",
+      "vehicle_model": "Camry",
+      "vehicle_km": "45000",
+      "service_requested": "Oil Change + Brake Inspection",
+      "preferred_appointment": "Tuesday or Wednesday morning",
+      "customer_notes": "Slight squeaking noise during braking, keeps detailed maintenance records",
+      "oil_type_preference": "Full synthetic"
+    },
+    "successEvaluation": "true"
+  },
+  "timestamp": "2024-01-15T14:30:15Z"
+} 
