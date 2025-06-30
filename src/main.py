@@ -50,21 +50,24 @@ def handle_vapi_webhook():
                 "info": "Only processing end-of-call-report messages"
             }), 200
         
-        # Extract call ID for logging
+        # Extract call ID and agent ID for logging
         call_id = payload.get('call', {}).get('id') or payload.get('message', {}).get('call', {}).get('id', 'unknown')
-        logger.info(f"Processing end-of-call-report for call: {call_id}")
+        agent_id = payload.get('call', {}).get('assistant', {}).get('id') or payload.get('message', {}).get('call', {}).get('assistant', {}).get('id', 'unknown')
+        
+        logger.info(f"Processing end-of-call-report for call: {call_id}, agent: {agent_id}")
         
         # Parse the payload into flat dict
         parsed_data = parser.parse_call_data(payload)
         
-        # Write to Google Sheets
-        sheet_writer.append_call_data(parsed_data)
+        # Write to appropriate Google Sheet based on agent
+        sheet_writer.append_call_data(parsed_data, agent_id)
         
-        logger.info(f"Successfully processed call: {parsed_data.get('vapi_call_id')}")
+        logger.info(f"Successfully processed call: {parsed_data.get('vapi_call_id')} for agent: {agent_id}")
         
         return jsonify({
             "status": "success",
             "call_id": parsed_data.get('vapi_call_id'),
+            "agent_id": agent_id,
             "timestamp": parsed_data.get('timestamp'),
             "message_type": message_type
         }), 200
@@ -88,7 +91,11 @@ def health_check():
     health_status = {
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
-        "service": "vapi-call-log"
+        "service": "vapi-call-log-multi-agent",
+        "agents_configured": {
+            "agent1_id": os.environ.get('AGENT1_ID', 'Not configured'),
+            "agent2_id": os.environ.get('AGENT2_ID', 'Not configured')
+        }
     }
     
     # Check Google Sheets connectivity

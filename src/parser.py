@@ -65,6 +65,9 @@ class VapiCallParser:
                 'Email': self._validate_email(structured_data.get('customer_email', structured_data.get('Email', ''))),
                 'PhoneNumber': self._validate_phone(structured_data.get('customer_phone', structured_data.get('PhoneNumber', ''))),
                 
+                # Call metadata - caller phone number from call.from
+                'CallerPhoneNumber': self._validate_phone(call_data.get('from', '')),
+                
                 # Call intent and vehicle info
                 'CallerIntent': self._validate_intent(structured_data.get('caller_intent', structured_data.get('CallerIntent', ''))),
                 'VehicleMake': self._clean_text(structured_data.get('vehicle_make', structured_data.get('VehicleMake', ''))),

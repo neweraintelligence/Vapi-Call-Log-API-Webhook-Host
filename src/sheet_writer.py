@@ -15,9 +15,15 @@ class SheetWriter:
     """
     
     def __init__(self):
-        self.spreadsheet_id = os.getenv('GOOGLE_SHEET_ID')
         self.credentials_path = os.getenv('GOOGLE_CREDENTIALS_PATH', 'credentials.json')
         self.sheet_name = os.getenv('SHEET_NAME', 'Raw')
+        
+        # Add agent-specific sheet IDs
+        self.agent1_sheet_id = os.getenv('GOOGLE_SHEET_ID_AGENT1')
+        self.agent2_sheet_id = os.getenv('GOOGLE_SHEET_ID_AGENT2')
+        
+        # Default to agent1 sheet for backward compatibility
+        self.spreadsheet_id = self.agent1_sheet_id
         
         # Column headers (must match parser output)
         self.headers = [
@@ -28,6 +34,18 @@ class SheetWriter:
         
         self.service: Optional[Any] = None
         self._initialized = False
+    
+    def set_sheet_for_agent(self, agent_id: str):
+        """Set the appropriate sheet ID based on agent"""
+        if agent_id == os.getenv('AGENT1_ID'):
+            self.spreadsheet_id = self.agent1_sheet_id
+            logger.info(f"Routing to Agent 1 sheet for agent ID: {agent_id}")
+        elif agent_id == os.getenv('AGENT2_ID'):
+            self.spreadsheet_id = self.agent2_sheet_id
+            logger.info(f"Routing to Agent 2 sheet for agent ID: {agent_id}")
+        else:
+            logger.warning(f"Unknown agent ID: {agent_id}, using agent1 sheet")
+            self.spreadsheet_id = self.agent1_sheet_id
     
     def _initialize_service(self):
         """Initialize Google Sheets API service (lazy initialization)"""
@@ -61,16 +79,24 @@ class SheetWriter:
             logger.error(f"Failed to initialize Google Sheets service: {str(e)}")
             raise
     
-    def append_call_data(self, call_data: Dict[str, Any]) -> bool:
+    def append_call_data(self, call_data: Dict[str, Any], agent_id: str = None) -> bool:
         """
-        Append call data to the Google Sheet with retry logic
+        Append call data to the appropriate Google Sheet based on agent
         
         Args:
             call_data: Parsed call data dictionary
+            agent_id: VAPI agent ID to determine which sheet to use
             
         Returns:
             bool: Success status
         """
+        # Set the appropriate sheet based on agent
+        if agent_id:
+            self.set_sheet_for_agent(agent_id)
+        else:
+            # Fallback to agent1 sheet for backward compatibility
+            self.spreadsheet_id = self.agent1_sheet_id
+        
         # Initialize service if not already done
         self._initialize_service()
         
@@ -85,7 +111,7 @@ class SheetWriter:
         for attempt in range(max_retries):
             try:
                 self._append_row(row_data)
-                logger.info(f"Successfully appended call {call_data.get('vapi_call_id')} to sheet")
+                logger.info(f"Successfully appended call {call_data.get('vapi_call_id')} to sheet for agent: {agent_id}")
                 return True
                 
             except HttpError as e:
@@ -265,33 +291,67 @@ class SheetWriter:
     
     def health_check(self) -> Dict[str, Any]:
         """
-        Check if Google Sheets connection is working
+        Check if Google Sheets connection is working for all agent sheets
         
         Returns:
-            Dict with health status
+            Dict with health status for all sheets
         """
         try:
             # Check if required environment variables are set
-            if not self.spreadsheet_id:
+            if not self.agent1_sheet_id and not self.agent2_sheet_id:
                 return {
                     "status": "error",
-                    "message": "GOOGLE_SHEET_ID environment variable not set"
+                    "message": "No Google Sheet IDs configured for agents"
                 }
             
             # Try to initialize service
             self._initialize_service()
             
-            # Test basic connectivity by getting sheet metadata
-            result = self.service.spreadsheets().get(
-                spreadsheetId=self.spreadsheet_id
-            ).execute()
-            
-            return {
+            health_status = {
                 "status": "healthy",
                 "message": "Google Sheets connection successful",
-                "sheet_title": result.get('properties', {}).get('title', 'Unknown'),
-                "sheet_id": self.spreadsheet_id
+                "sheets": {}
             }
+            
+            # Check Agent 1 sheet
+            if self.agent1_sheet_id:
+                try:
+                    result = self.service.spreadsheets().get(
+                        spreadsheetId=self.agent1_sheet_id
+                    ).execute()
+                    health_status["sheets"]["agent1"] = {
+                        "status": "healthy",
+                        "title": result.get('properties', {}).get('title', 'Unknown'),
+                        "sheet_id": self.agent1_sheet_id
+                    }
+                except Exception as e:
+                    health_status["sheets"]["agent1"] = {
+                        "status": "error",
+                        "message": str(e),
+                        "sheet_id": self.agent1_sheet_id
+                    }
+                    health_status["status"] = "degraded"
+            
+            # Check Agent 2 sheet
+            if self.agent2_sheet_id:
+                try:
+                    result = self.service.spreadsheets().get(
+                        spreadsheetId=self.agent2_sheet_id
+                    ).execute()
+                    health_status["sheets"]["agent2"] = {
+                        "status": "healthy",
+                        "title": result.get('properties', {}).get('title', 'Unknown'),
+                        "sheet_id": self.agent2_sheet_id
+                    }
+                except Exception as e:
+                    health_status["sheets"]["agent2"] = {
+                        "status": "error",
+                        "message": str(e),
+                        "sheet_id": self.agent2_sheet_id
+                    }
+                    health_status["status"] = "degraded"
+            
+            return health_status
             
         except Exception as e:
             return {

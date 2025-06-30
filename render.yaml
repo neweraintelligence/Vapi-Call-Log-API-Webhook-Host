@@ -7,9 +7,13 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.9.16
-      - key: GOOGLE_SHEET_ID
+      - key: GOOGLE_SHEET_ID_AGENT1
         sync: false  # You'll set this in Render dashboard
-      - key: VAPI_WEBHOOK_SECRET
+      - key: GOOGLE_SHEET_ID_AGENT2
+        sync: false  # You'll set this in Render dashboard
+      - key: AGENT1_ID
+        sync: false  # You'll set this in Render dashboard
+      - key: AGENT2_ID
         sync: false  # You'll set this in Render dashboard
       - key: SHEET_NAME
         value: Raw
