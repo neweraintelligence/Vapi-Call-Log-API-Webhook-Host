@@ -18,18 +18,27 @@ class SheetWriter:
         self.credentials_path = os.getenv('GOOGLE_CREDENTIALS_PATH', 'credentials.json')
         self.sheet_name = os.getenv('SHEET_NAME', 'Raw')
         
-        # Add agent-specific sheet IDs
+        # Support both single and multi-agent setups
+        self.single_sheet_id = os.getenv('GOOGLE_SHEET_ID')  # Single sheet for backward compatibility
         self.agent1_sheet_id = os.getenv('GOOGLE_SHEET_ID_AGENT1')
         self.agent2_sheet_id = os.getenv('GOOGLE_SHEET_ID_AGENT2')
         
-        # Default to agent1 sheet for backward compatibility
-        self.spreadsheet_id = self.agent1_sheet_id
+        # Determine which sheet ID to use (prioritize single sheet for simplicity)
+        if self.single_sheet_id:
+            self.spreadsheet_id = self.single_sheet_id
+            logger.info("Using single Google Sheet configuration")
+        elif self.agent1_sheet_id:
+            self.spreadsheet_id = self.agent1_sheet_id
+            logger.info("Using Agent 1 Google Sheet configuration")
+        else:
+            self.spreadsheet_id = None
+            logger.warning("No Google Sheet ID configured")
         
         # Column headers (must match parser output)
         self.headers = [
             'timestamp', 'vapi_call_id', 'CallSummary', 'Name', 'Email', 'PhoneNumber',
-            'CallerIntent', 'VehicleMake', 'VehicleModel', 'VehicleKM', 'escalation_status',
-            'follow_up_due', 'call_duration', 'call_status', 'raw_payload'
+            'CallerPhoneNumber', 'CallerIntent', 'VehicleMake', 'VehicleModel', 'VehicleKM', 
+            'escalation_status', 'follow_up_due', 'call_duration', 'call_status', 'raw_payload'
         ]
         
         self.service: Optional[Any] = None
@@ -37,6 +46,13 @@ class SheetWriter:
     
     def set_sheet_for_agent(self, agent_id: str):
         """Set the appropriate sheet ID based on agent"""
+        # If using single sheet configuration, ignore agent routing
+        if self.single_sheet_id:
+            self.spreadsheet_id = self.single_sheet_id
+            logger.info(f"Using single sheet configuration for agent: {agent_id}")
+            return
+            
+        # Multi-agent routing
         if agent_id == os.getenv('AGENT1_ID'):
             self.spreadsheet_id = self.agent1_sheet_id
             logger.info(f"Routing to Agent 1 sheet for agent ID: {agent_id}")
@@ -85,17 +101,24 @@ class SheetWriter:
         
         Args:
             call_data: Parsed call data dictionary
-            agent_id: VAPI agent ID to determine which sheet to use
+            agent_id: VAPI agent ID to determine which sheet to use (optional for single sheet)
             
         Returns:
             bool: Success status
         """
-        # Set the appropriate sheet based on agent
-        if agent_id:
+        # Set the appropriate sheet based on agent (if multi-agent) or use single sheet
+        if agent_id and not self.single_sheet_id:
             self.set_sheet_for_agent(agent_id)
+        elif self.single_sheet_id:
+            # Use single sheet configuration
+            self.spreadsheet_id = self.single_sheet_id
         else:
             # Fallback to agent1 sheet for backward compatibility
             self.spreadsheet_id = self.agent1_sheet_id
+        
+        # Check if we have a valid spreadsheet ID
+        if not self.spreadsheet_id:
+            raise ValueError("No Google Sheet ID configured. Set GOOGLE_SHEET_ID or GOOGLE_SHEET_ID_AGENT1")
         
         # Initialize service if not already done
         self._initialize_service()
@@ -291,17 +314,17 @@ class SheetWriter:
     
     def health_check(self) -> Dict[str, Any]:
         """
-        Check if Google Sheets connection is working for all agent sheets
+        Check if Google Sheets connection is working
         
         Returns:
-            Dict with health status for all sheets
+            Dict with health status for configured sheets
         """
         try:
-            # Check if required environment variables are set
-            if not self.agent1_sheet_id and not self.agent2_sheet_id:
+            # Check if any sheet ID is configured
+            if not self.single_sheet_id and not self.agent1_sheet_id and not self.agent2_sheet_id:
                 return {
                     "status": "error",
-                    "message": "No Google Sheet IDs configured for agents"
+                    "message": "No Google Sheet IDs configured. Set GOOGLE_SHEET_ID or GOOGLE_SHEET_ID_AGENT1"
                 }
             
             # Try to initialize service
@@ -313,7 +336,26 @@ class SheetWriter:
                 "sheets": {}
             }
             
-            # Check Agent 1 sheet
+            # Check single sheet configuration
+            if self.single_sheet_id:
+                try:
+                    result = self.service.spreadsheets().get(
+                        spreadsheetId=self.single_sheet_id
+                    ).execute()
+                    health_status["sheets"]["single"] = {
+                        "status": "healthy",
+                        "title": result.get('properties', {}).get('title', 'Unknown'),
+                        "sheet_id": self.single_sheet_id
+                    }
+                except Exception as e:
+                    health_status["sheets"]["single"] = {
+                        "status": "error",
+                        "message": str(e),
+                        "sheet_id": self.single_sheet_id
+                    }
+                    health_status["status"] = "degraded"
+            
+            # Check Agent 1 sheet (if multi-agent)
             if self.agent1_sheet_id:
                 try:
                     result = self.service.spreadsheets().get(
@@ -332,7 +374,7 @@ class SheetWriter:
                     }
                     health_status["status"] = "degraded"
             
-            # Check Agent 2 sheet
+            # Check Agent 2 sheet (if multi-agent)
             if self.agent2_sheet_id:
                 try:
                     result = self.service.spreadsheets().get(

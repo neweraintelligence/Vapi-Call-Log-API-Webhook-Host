@@ -91,12 +91,16 @@ def health_check():
     health_status = {
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
-        "service": "vapi-call-log-multi-agent",
-        "agents_configured": {
+        "service": "vapi-call-log",
+        "configuration": "single-sheet" if os.environ.get('GOOGLE_SHEET_ID') else "multi-agent"
+    }
+    
+    # Add agent configuration info only for multi-agent setups
+    if not os.environ.get('GOOGLE_SHEET_ID'):
+        health_status["agents_configured"] = {
             "agent1_id": os.environ.get('AGENT1_ID', 'Not configured'),
             "agent2_id": os.environ.get('AGENT2_ID', 'Not configured')
         }
-    }
     
     # Check Google Sheets connectivity
     try:
