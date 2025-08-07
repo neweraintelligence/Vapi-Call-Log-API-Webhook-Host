@@ -51,42 +51,28 @@ class VapiCallParser:
             structured_data = analysis_data.get('structuredData', {})
             success_evaluation = analysis_data.get('successEvaluation', '')
             
-            # Extract and validate core fields
+            # Extract and validate core fields (mapped to match Google Sheet columns)
             parsed = {
-                # Core identifiers
-                'vapi_call_id': self._safe_get(call_data, 'id', ''),
-                'timestamp': self._parse_timestamp(call_data.get('created_at')),
-                
-                # Call summary from analysis
-                'CallSummary': self._clean_text(summary_text),
-                
-                # Structured customer data from analysis
-                'Name': self._format_name(structured_data.get('customer_name', structured_data.get('Name', ''))),
-                'Email': self._validate_email(structured_data.get('customer_email', structured_data.get('Email', ''))),
-                'PhoneNumber': self._validate_phone(structured_data.get('customer_phone', structured_data.get('PhoneNumber', ''))),
-                
-                # Call metadata - caller phone number from call.from
-                'CallerPhoneNumber': self._validate_phone(call_data.get('from', '')),
-                
-                # Call intent and vehicle info
-                'CallerIntent': self._validate_intent(structured_data.get('caller_intent', structured_data.get('CallerIntent', ''))),
-                'VehicleMake': self._clean_text(structured_data.get('vehicle_make', structured_data.get('VehicleMake', ''))),
-                'VehicleModel': self._clean_text(structured_data.get('vehicle_model', structured_data.get('VehicleModel', ''))),
-                'VehicleKM': self._parse_numeric(structured_data.get('vehicle_km', structured_data.get('VehicleKM'))),
-                
-                # Operational fields
-                'escalation_status': self._determine_escalation_status(summary_text, structured_data),
-                'follow_up_due': self._calculate_follow_up_date(structured_data.get('caller_intent', structured_data.get('CallerIntent', ''))),
-                
-                # Additional metadata
-                'call_duration': call_data.get('duration', 0),
-                'call_status': call_data.get('status', 'unknown'),
-                'success_evaluation': str(success_evaluation),
-                'raw_payload': str(payload)[:500]  # Truncated raw data for debugging
+                # Map to actual Google Sheet column names
+                'date': self._parse_timestamp(call_data.get('created_at')),
+                'id': self._safe_get(call_data, 'id', ''),
+                'summary': self._clean_text(summary_text),
+                'caller_phone_number': self._validate_phone(call_data.get('from', '')),
+                'Column 2': '',  # Empty placeholder
+                'Column 3': '',  # Empty placeholder
+                'call_intent': self._validate_intent(structured_data.get('caller_intent', structured_data.get('CallerIntent', ''))),
+                'Column 4': '',  # Empty placeholder
+                'Column 5': '',  # Empty placeholder
+                'Column 6': '',  # Empty placeholder
+                'Column 7': '',  # Empty placeholder
+                'date_requested': self._calculate_follow_up_date(structured_data.get('caller_intent', structured_data.get('CallerIntent', ''))),
+                'Column 8': '',  # Empty placeholder
+                'Column 9': '',  # Empty placeholder
+                'json': str(payload)[:500]  # Truncated raw data for debugging
             }
             
             # Log successful parse
-            logger.info(f"Successfully parsed call {parsed['vapi_call_id']}")
+            logger.info(f"Successfully parsed call {parsed['id']}")
             
             return parsed
             

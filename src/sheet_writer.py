@@ -34,11 +34,11 @@ class SheetWriter:
             self.spreadsheet_id = None
             logger.warning("No Google Sheet ID configured")
         
-        # Column headers (must match parser output)
+        # Column headers (updated to match Google Sheet column names)
         self.headers = [
-            'timestamp', 'vapi_call_id', 'CallSummary', 'Name', 'Email', 'PhoneNumber',
-            'CallerPhoneNumber', 'CallerIntent', 'VehicleMake', 'VehicleModel', 'VehicleKM', 
-            'escalation_status', 'follow_up_due', 'call_duration', 'call_status', 'raw_payload'
+            'date', 'id', 'summary', 'caller_phone_number', 'Column 2', 'Column 3',
+            'call_intent', 'Column 4', 'Column 5', 'Column 6', 'Column 7', 
+            'date_requested', 'Column 8', 'Column 9', 'json'
         ]
         
         self.service: Optional[Any] = None
