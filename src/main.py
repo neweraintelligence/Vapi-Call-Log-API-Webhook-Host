@@ -84,6 +84,61 @@ def handle_vapi_webhook():
             "message": str(e)
         }), 500
 
+@app.route('/debug', methods=['POST'])
+def debug_webhook():
+    """
+    Debug endpoint to log raw VAPI payload
+    """
+    try:
+        # Get raw payload
+        payload = request.get_json()
+        
+        # Log the complete payload for debugging
+        logger.info("=== DEBUG WEBHOOK PAYLOAD ===")
+        logger.info(f"Raw payload: {json.dumps(payload, indent=2)}")
+        
+        # Extract call data for analysis
+        call_data = payload.get('call', {})
+        analysis_data = payload.get('analysis', {})
+        
+        logger.info("=== CALL DATA ANALYSIS ===")
+        logger.info(f"Call fields: {list(call_data.keys())}")
+        logger.info(f"Analysis fields: {list(analysis_data.keys())}")
+        
+        # Check for phone number fields
+        phone_fields = []
+        for key, value in call_data.items():
+            if 'phone' in key.lower() or 'from' in key.lower() or 'caller' in key.lower():
+                phone_fields.append(f"{key}: {value}")
+        
+        if phone_fields:
+            logger.info(f"Phone-related fields found: {phone_fields}")
+        else:
+            logger.info("No phone-related fields found in call data")
+        
+        # Check structured data for phone
+        structured_data = analysis_data.get('structuredData', {})
+        if 'PhoneNumber' in structured_data:
+            logger.info(f"PhoneNumber in structured data: {structured_data['PhoneNumber']}")
+        else:
+            logger.info("No PhoneNumber in structured data")
+        
+        logger.info("=== END DEBUG ===")
+        
+        return jsonify({
+            "status": "debug_complete",
+            "call_fields": list(call_data.keys()),
+            "analysis_fields": list(analysis_data.keys()),
+            "phone_fields_found": phone_fields
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error in debug endpoint: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
