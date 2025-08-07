@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - New Era AI Cold Outreach{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-phone-alt text-primary me-2"></i>
+            Cold Outreach Dashboard
+        </h1>
+    </div>
+</div>
+
+<!-- Campaign Status -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="campaign-controls">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h4 class="mb-2">
+                        Campaign Status: 
+                        {% if status.is_running %}
+                            <span class="badge bg-success">RUNNING</span>
+                        {% else %}
+                            <span class="badge bg-secondary">STOPPED</span>
+                        {% endif %}
+                    </h4>
+                    {% if status.configuration %}
+                        <p class="mb-0 text-muted">
+                            {{ status.configuration.calls_per_batch }} calls every {{ status.configuration.batch_interval_minutes }} minutes
+                        </p>
+                    {% endif %}
+                </div>
+                <div class="col-md-6 text-end">
+                    <div class="btn-group" role="group">
+                        {% if not status.is_running %}
+                            <button class="btn btn-success" onclick="startCampaign()">
+                                <i class="fas fa-play me-1"></i>Start Campaign
+                            </button>
+                            <button class="btn btn-primary" onclick="startCampaignWithLimit()">
+                                <i class="fas fa-list-ol me-1"></i>Start with Limit
+                            </button>
+                        {% else %}
+                            <button class="btn btn-danger" onclick="stopCampaign()">
+                                <i class="fas fa-stop me-1"></i>Stop Campaign
+                            </button>
+                        {% endif %}
+                        <button class="btn btn-outline-secondary" onclick="refreshStatus()">
+                            <i class="fas fa-sync-alt me-1"></i>Refresh
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+{% if status.statistics %}
+<div class="row mb-4">
+    {% for stat_name, count in status.statistics.items() %}
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card card-metric">
+            <div class="card-body text-center">
+                <h3 class="card-title">{{ count }}</h3>
+                <p class="card-text">{{ stat_name.replace('_', ' ').title() }}</p>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Recent Activity -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-clock me-2"></i>Quick Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <a href="{{ url_for('upload_prospects') }}" class="btn btn-outline-primary w-100">
+                            <i class="fas fa-upload mb-2"></i><br>
+                            Upload Prospects
+                        </a>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <a href="{{ url_for('view_prospects') }}" class="btn btn-outline-info w-100">
+                            <i class="fas fa-users mb-2"></i><br>
+                            View Prospects
+                        </a>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <a href="{{ url_for('view_results') }}" class="btn btn-outline-success w-100">
+                            <i class="fas fa-chart-line mb-2"></i><br>
+                            View Results
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Error Display -->
+{% if status.error %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="alert alert-danger">
+            <h5><i class="fas fa-exclamation-triangle me-2"></i>System Error</h5>
+            <p class="mb-0">{{ status.error }}</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Start Campaign Modal -->
+<div class="modal fade" id="campaignLimitModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Start Campaign with Limit</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="limitForm">
+                    <div class="mb-3">
+                        <label for="targetCalls" class="form-label">Number of calls to make:</label>
+                        <input type="number" class="form-control" id="targetCalls" min="1" max="1000" value="100">
+                        <div class="form-text">Leave empty for unlimited calls</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="startCampaignWithTarget()">Start Campaign</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function startCampaign() {
+    fetch('/campaign/start', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('Error: ' + data.error);
+        } else {
+            location.reload();
+        }
+    })
+    .catch(error => {
+        alert('Error starting campaign: ' + error);
+    });
+}
+
+function startCampaignWithLimit() {
+    const modal = new bootstrap.Modal(document.getElementById('campaignLimitModal'));
+    modal.show();
+}
+
+function startCampaignWithTarget() {
+    const targetCalls = document.getElementById('targetCalls').value;
+    
+    fetch('/campaign/start', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            target_calls: targetCalls ? parseInt(targetCalls) : null
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('Error: ' + data.error);
+        } else {
+            bootstrap.Modal.getInstance(document.getElementById('campaignLimitModal')).hide();
+            location.reload();
+        }
+    })
+    .catch(error => {
+        alert('Error starting campaign: ' + error);
+    });
+}
+
+function stopCampaign() {
+    if (confirm('Are you sure you want to stop the campaign?')) {
+        fetch('/campaign/stop', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert('Error: ' + data.error);
+            } else {
+                location.reload();
+            }
+        })
+        .catch(error => {
+            alert('Error stopping campaign: ' + error);
+        });
+    }
+}
+
+function refreshStatus() {
+    location.reload();
+}
+
+// Auto-refresh status every 30 seconds if campaign is running
+{% if status.is_running %}
+setInterval(function() {
+    fetch('/campaign/status')
+        .then(response => response.json())
+        .then(data => {
+            // Update status display without full page reload
+            if (!data.is_running) {
+                location.reload(); // Reload if campaign stopped
+            }
+        })
+        .catch(error => console.log('Status refresh error:', error));
+}, 30000);
+{% endif %}
+</script>
+{% endblock %}

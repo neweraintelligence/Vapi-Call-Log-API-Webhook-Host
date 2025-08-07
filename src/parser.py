@@ -51,13 +51,16 @@ class VapiCallParser:
             structured_data = analysis_data.get('structuredData', {})
             success_evaluation = analysis_data.get('successEvaluation', '')
             
+            # Extract phone number from multiple possible sources
+            phone_number = self._extract_phone_number(call_data, structured_data, payload)
+            
             # Extract and validate core fields (mapped to match Google Sheet columns)
             parsed = {
                 # Map to actual Google Sheet column names
                 'date': self._parse_timestamp(call_data.get('created_at')),
                 'id': self._safe_get(call_data, 'id', ''),
                 'summary': self._clean_text(summary_text),
-                'caller_phone_number': self._validate_phone(call_data.get('from', '')),
+                'caller_phone_number': phone_number,
                 'Column 2': '',  # Empty placeholder
                 'Column 3': '',  # Empty placeholder
                 'call_intent': self._validate_intent(structured_data.get('caller_intent', structured_data.get('CallerIntent', ''))),
@@ -127,6 +130,36 @@ class VapiCallParser:
         else:
             logger.warning(f"Invalid email format: {email}")
             return f"INVALID: {email}"
+    
+    def _extract_phone_number(self, call_data: Dict[str, Any], structured_data: Dict[str, Any], payload: Dict[str, Any]) -> str:
+        """
+        Extract phone number from multiple possible sources in VAPI payload
+        
+        Priority order:
+        1. call.from (primary source)
+        2. structuredData.PhoneNumber (from AI analysis)
+        3. call.phone (alternative field)
+        4. call.caller (alternative field)
+        """
+        phone_sources = [
+            call_data.get('from', ''),
+            structured_data.get('PhoneNumber', ''),
+            structured_data.get('phone', ''),
+            call_data.get('phone', ''),
+            call_data.get('caller', ''),
+            payload.get('from', ''),
+            payload.get('phone', '')
+        ]
+        
+        for phone in phone_sources:
+            if phone and phone.strip():
+                validated_phone = self._validate_phone(phone)
+                if validated_phone and not validated_phone.startswith('INVALID:'):
+                    logger.info(f"Found phone number: {validated_phone} from source")
+                    return validated_phone
+        
+        logger.warning("No valid phone number found in any source")
+        return ''
     
     def _validate_phone(self, phone: str) -> str:
         """Validate and format phone number"""

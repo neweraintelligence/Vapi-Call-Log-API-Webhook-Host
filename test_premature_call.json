@@ -1,0 +1,26 @@
+{
+  "type": "end-of-call-report",
+  "call": {
+    "id": "call_premature_12345",
+    "created_at": "2024-01-15T14:30:00Z",
+    "duration": 15,
+    "status": "completed",
+    "type": "inbound"
+  },
+  "analysis": {
+    "summary": "This call ended prematurely, with the customer hanging up immediately after the AI's greeting. Therefore, no information was gathered regarding the customer's name, contact details, services of interest, preferred appointment times, or any specific questions/requests. The call was not transferred, and no message was left.",
+    "structuredData": {
+      "Name": "",
+      "Email": "",
+      "PhoneNumber": "+14036604197",
+      "CallerIntent": "Unknown",
+      "VehicleMake": "",
+      "VehicleModel": "",
+      "VehicleKM": "",
+      "ServiceRequested": "",
+      "PreferredAppointment": "",
+      "CustomerNotes": "Call ended prematurely"
+    },
+    "success": false
+  }
+}

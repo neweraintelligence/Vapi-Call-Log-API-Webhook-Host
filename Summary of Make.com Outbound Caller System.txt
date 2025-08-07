@@ -1,0 +1,78 @@
+Based on the Make.com scenario images you've shared, I can extract and describe the complete workflow for you. This appears to be an automated cold calling system for tire shops that integrates with VAPI (Voice AI Platform).
+Complete Make.com Scenario Description
+Workflow Overview
+This is a 5-step automated workflow that processes tire shop data from Google Sheets, makes phone calls via VAPI, and updates the results back to the spreadsheet.
+Step-by-Step Workflow Breakdown
+Step 1: Google Sheets - Search Rows
+Purpose: Retrieves tire shop data from a spreadsheet
+Configuration:
+Connection: "My Google connection (si...)"
+Spreadsheet: "Cold Caller - Tire Shops"
+Sheet: "Sheet1"
+Filter: Only rows where status (D) equals "QUEUED"
+Limit: 5 results maximum
+Columns: A-ZZZ range
+Headers: Yes
+Sort: Ascending order
+Step 2: Iterator
+Purpose: Processes each tire shop record individually
+Configuration:
+Takes the array of results from Step 1
+Iterates through each row containing: name (A), number (B), attempt (C), status (D), next_call (E), notes (F), Row number
+Step 3: HTTP - Make a Request
+Purpose: Initiates phone calls via VAPI API
+Configuration:
+URL: https://api.vapi.ai/call/phone
+Method: POST
+Headers:
+Authorization: Bearer e5fe0341-cdd5-404a-be53-27281b79bb5d
+Content-Type: application/json
+Body (JSON):
+
+    {
+      "phoneNumberId": "378d0642-42d2-4d56-8c65-193492d77201",
+      "assistantId": "842bd6e8-0750-4d4f-a169-b62b53578c0d",
+      "customer": {
+        "number": "1. number (B)"
+      },
+      "metadata": {
+        "row": "1. Row number",
+        "attempt": "1. attempt (C)"
+      }
+    }
+
+
+Apply to VAPI_CONFIGU...
+Error handling: Evaluates all states as errors except 2xx and 3xx
+Step 4: Tools - Sleep
+Purpose: Adds delay between calls
+Configuration:
+Delay: 1 second
+Range: 1-300 seconds allowed
+Step 5: Google Sheets - Update a Row
+Purpose: Updates the spreadsheet with call results
+Configuration:
+Connection: Same Google connection
+Spreadsheet: "Cold Caller - Tire Shops"
+Sheet: "Sheet1"
+Row number: 1. Row number (dynamic from iterator)
+Headers: Yes
+Values to update:
+name (A): 1. name (A)
+number (B): 1. number (B)
+attempt (C): add(2. attempt (C), 1) (increments attempt counter)
+status (D): "RANG" (hardcoded)
+next_call (E): (empty)
+notes (F): (empty)
+Data Flow Summary
+Extract: Pulls up to 5 "QUEUED" tire shop records from Google Sheets
+Process: For each record, makes a phone call using VAPI with the shop's phone number
+Delay: Waits 1 second between calls
+Update: Marks each processed record as "RANG" and increments the attempt counter
+Key Technical Details
+VAPI Integration: Uses specific phone number ID and assistant ID for automated calling
+Error Handling: HTTP module configured to treat non-2xx/3xx responses as errors
+Rate Limiting: 1-second delay between calls to avoid overwhelming the system
+Data Tracking: Maintains attempt counters and status updates for each record
+Batch Processing: Limited to 5 records per execution cycle
+This workflow essentially automates cold calling for tire shops by reading from a queue, making calls, and updating the status of each attempt in the spreadsheet.
